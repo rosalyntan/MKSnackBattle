@@ -38,30 +38,31 @@ service cloud.firestore {
              );
     }
 
+    // Rules for snacks collection group (anywhere in the database)
+    match /{path=**}/snacks/{snackId} {
+      // Any logged-in user can read
+      allow read: if request.auth != null;
+      
+      // Only users with verified email can create
+      allow create: if request.auth != null && isEmailVerified();
+      
+      // Update rules: No one can change the name, and votes change IFF presence changes
+      allow update: if request.auth != null && 
+                    request.resource.data.name == resource.data.name &&
+                    onlyModifiesSelf('upvotedUsers') &&
+                    onlyModifiesSelf('downvotedUsers') &&
+                    ((request.resource.data.votes != resource.data.votes) == (presenceChanged('upvotedUsers') || presenceChanged('downvotedUsers')));
+      
+      // Only moderators can delete
+      allow delete: if request.auth != null && isModerator();
+    }
+
     match /campuses/{campusId} {
       // Any logged-in user can read campuses
       allow read: if request.auth != null;
       
       // No client write access for campuses
       allow write: if false;
-
-      match /snacks/{snackId} {
-        // Any logged-in user can read
-        allow read: if request.auth != null;
-        
-        // Only users with verified email can create
-        allow create: if request.auth != null && isEmailVerified();
-        
-        // Update rules: No one can change the name, and votes change IFF presence changes
-        allow update: if request.auth != null && 
-                      request.resource.data.name == resource.data.name &&
-                      onlyModifiesSelf('upvotedUsers') &&
-                      onlyModifiesSelf('downvotedUsers') &&
-                      ((request.resource.data.votes != resource.data.votes) == (presenceChanged('upvotedUsers') || presenceChanged('downvotedUsers')));
-        
-        // Only moderators can delete
-        allow delete: if request.auth != null && isModerator();
-      }
     }
 
     match /users/{uid} {

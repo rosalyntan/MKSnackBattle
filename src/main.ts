@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, query, orderBy, onSnapshot, addDoc, updateDoc, deleteDoc, doc, runTransaction, arrayUnion, arrayRemove, getDoc, setDoc, getDocs } from 'firebase/firestore';
+import { getFirestore, collection, query, orderBy, onSnapshot, addDoc, updateDoc, deleteDoc, doc, runTransaction, arrayUnion, arrayRemove, getDoc, setDoc, getDocs, collectionGroup } from 'firebase/firestore';
 import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, User, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { firebaseConfig } from './firebaseConfig';
 
@@ -37,6 +37,34 @@ const proposeSectionEl = document.getElementById('propose-section')!;
 const snackNameInput = document.getElementById('snack-name-input') as HTMLInputElement;
 const proposeBtn = document.getElementById('propose-btn')!;
 const proposeErrorEl = document.getElementById('propose-error')!;
+
+// Tab Listeners
+const tabCampus = document.getElementById('tab-campus')!;
+const tabGlobal = document.getElementById('tab-global')!;
+
+if (tabCampus && tabGlobal) {
+    tabCampus.addEventListener('click', () => {
+        tabCampus.classList.add('active');
+        tabCampus.classList.remove('secondary');
+        tabGlobal.classList.add('secondary');
+        tabGlobal.classList.remove('active');
+        const mainSectionTitle = document.getElementById('main-section-title')!;
+        if (mainSectionTitle) {
+            mainSectionTitle.textContent = "Ranked Snacks";
+        }
+        if (currentCampus) {
+            loadSnacks(currentCampus);
+        }
+    });
+
+    tabGlobal.addEventListener('click', () => {
+        tabGlobal.classList.add('active');
+        tabGlobal.classList.remove('secondary');
+        tabCampus.classList.add('secondary');
+        tabCampus.classList.remove('active');
+        loadGlobalLeaderboard();
+    });
+}
 
 // Auth Listener
 onAuthStateChanged(auth, async (user) => {
@@ -417,7 +445,7 @@ function loadSnacks(campusId: string) {
 // Populate Default Snacks
 async function populateDefaultSnacksIfEmpty(campusId: string) {
     const snacksCol = collection(db, 'campuses', campusId, 'snacks');
-    const defaults = ['Chips', 'Nuts', 'Fruit', 'Protein Bar', 'Cold Brew'];
+    const defaults = ['La Croix', 'Granoogle', 'Banana'];
     console.log(`Populating default snacks for ${campusId}...`);
     for (const name of defaults) {
         await addDoc(snacksCol, {
@@ -427,6 +455,62 @@ async function populateDefaultSnacksIfEmpty(campusId: string) {
             downvotedUsers: []
         });
     }
+}
+
+async function loadGlobalLeaderboard() {
+    if (unsubscribeSnacks) unsubscribeSnacks();
+
+    const mainSectionTitle = document.getElementById('main-section-title')!;
+    if (mainSectionTitle) {
+        mainSectionTitle.textContent = "Global Leaderboard";
+    }
+
+    snacksListEl.innerHTML = '<p style="color: var(--text-secondary);">Loading global leaderboard...</p>';
+
+    const snacksQuery = collectionGroup(db, 'snacks');
+
+    unsubscribeSnacks = onSnapshot(snacksQuery, (snapshot) => {
+        const snackMap = new Map<string, { votes: number }>();
+
+        snapshot.forEach((doc) => {
+            const snack = doc.data() as SnackData;
+            const name = snack.name;
+
+            if (!snackMap.has(name)) {
+                snackMap.set(name, { votes: 0 });
+            }
+
+            const current = snackMap.get(name)!;
+            current.votes += snack.votes;
+        });
+
+        const sortedSnacks = Array.from(snackMap.entries()).map(([name, data]) => ({
+            name,
+            votes: data.votes
+        })).sort((a, b) => b.votes - a.votes);
+
+        if (sortedSnacks.length === 0) {
+            snacksListEl.innerHTML = '<p style="color: var(--text-secondary);">No snacks found.</p>';
+            return;
+        }
+
+        let html = '';
+        sortedSnacks.forEach((snack, index) => {
+            html += `
+                <div class="snack-card">
+                    <div class="snack-info">
+                        <div class="snack-name">${snack.name}</div>
+                        <div class="snack-votes">${snack.votes} votes total</div>
+                    </div>
+                    <div class="rank" style="font-size: 1.5rem; font-weight: 600; color: var(--accent-primary);">#${index + 1}</div>
+                </div>
+            `;
+        });
+        snacksListEl.innerHTML = html;
+    }, (error) => {
+        console.error("Error loading global leaderboard:", error);
+        snacksListEl.innerHTML = '<p style="color: var(--danger);">Error loading leaderboard. Check console.</p>';
+    });
 }
 
 // Expose functions to window

@@ -26,7 +26,11 @@
         </header>
 
         <main class="snacks-section">
-            <div class="section-title">Ranked Snacks</div>
+            <div class="tabs-container" style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+                <button id="tab-campus" class="tab-btn">Campus Poll</button>
+                <button id="tab-global" class="tab-btn secondary">Global Leaderboard</button>
+            </div>
+            <div class="section-title" id="main-section-title">Ranked Snacks</div>
             <div id="snacks-list">
                 <p style="color: var(--text-secondary);">Loading snacks...</p>
             </div>
