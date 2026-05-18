@@ -1,0 +1,75 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Function to check if user is a moderator (using custom claims)
+    function isModerator() {
+      return request.auth.token.isModerator == true;
+    }
+
+    // Function to check if email is verified
+    function isEmailVerified() {
+      return request.auth.token.email_verified == true;
+    }
+
+    // Helper to check if user's presence in an array changed
+    function presenceChanged(arrayName) {
+      let before = resource.data[arrayName].hasAll([request.auth.uid]);
+      let after = request.resource.data[arrayName].hasAll([request.auth.uid]);
+      return before != after;
+    }
+
+    // Helper to ensure user only adds/removes their own UID without using difference()
+    function onlyModifiesSelf(arrayName) {
+      let before = resource.data[arrayName];
+      let after = request.resource.data[arrayName];
+      let uid = request.auth.uid;
+      
+      return (before.hasAll([uid]) == after.hasAll([uid])) ?
+             // Presence didn't change: lists must be identical
+             (before.hasAll(after) && after.hasAll(before)) :
+             // Presence changed:
+             (after.hasAll([uid]) ?
+               // Added: after must contain all before, and only added uid
+               (after.hasAll(before) && after.hasOnly(before.concat([uid]))) :
+               // Removed: before must contain all after, and only removed uid
+               (before.hasAll(after) && before.hasOnly(after.concat([uid])))
+             );
+    }
+
+    match /campuses/{campusId} {
+      // Any logged-in user can read campuses
+      allow read: if request.auth != null;
+      
+      // No client write access for campuses
+      allow write: if false;
+
+      match /snacks/{snackId} {
+        // Any logged-in user can read
+        allow read: if request.auth != null;
+        
+        // Only users with verified email can create
+        allow create: if request.auth != null && isEmailVerified();
+        
+        // Update rules: No one can change the name, and votes change IFF presence changes
+        allow update: if request.auth != null && 
+                      request.resource.data.name == resource.data.name &&
+                      onlyModifiesSelf('upvotedUsers') &&
+                      onlyModifiesSelf('downvotedUsers') &&
+                      ((request.resource.data.votes != resource.data.votes) == (presenceChanged('upvotedUsers') || presenceChanged('downvotedUsers')));
+        
+        // Only moderators can delete
+        allow delete: if request.auth != null && isModerator();
+      }
+    }
+
+    match /users/{uid} {
+      // User can read their own document
+      allow read: if request.auth != null && uid == request.auth.uid;
+      
+      // User can create and update their own document (campus, name)
+      allow create, update: if request.auth != null && uid == request.auth.uid;
+    }
+  }
+}

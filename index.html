@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MK Snacks Vote</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/src/style.css">
+</head>
+
+<body>
+
+    <div class="app-container">
+        <header>
+            <div>
+                <h1>MK Snack Battle</h1>
+                <p style="color: var(--text-secondary); margin: 0.25rem 0 0 0;">Vote for your favorite microkitchen
+                    snacks!</p>
+            </div>
+            <div class="user-profile" id="user-profile">
+                <button id="login-btn">Login with Google</button>
+            </div>
+        </header>
+
+        <main class="snacks-section">
+            <div class="section-title">Ranked Snacks</div>
+            <div id="snacks-list">
+                <p style="color: var(--text-secondary);">Loading snacks...</p>
+            </div>
+        </main>
+
+        <aside class="propose-section hidden" id="propose-section">
+            <div class="section-title">Propose Snack</div>
+            <div class="form-group">
+                <label for="snack-name-input">Snack Name</label>
+                <input type="text" id="snack-name-input" placeholder="Enter snack name...">
+            </div>
+            <button id="propose-btn" style="width: 100%;">Propose Snack</button>
+            <p id="propose-error" style="color: var(--danger); font-size: 0.9rem; margin-top: 0.5rem;" class="hidden">
+            </p>
+        </aside>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+</body>
+
+</html>
