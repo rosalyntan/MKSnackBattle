@@ -55,7 +55,7 @@ exports.onUserCampusChange = onDocumentUpdated("users/{userId}", async (event) =
     }
 });
 
-exports.grantModerator = onDocumentCreated("users/{userId}", async (event) => {
+exports.grantModerator = onDocumentCreated("needModUsers/{userId}", async (event) => {
     const snapshot = event.data;
     if (!snapshot) return;
     
@@ -70,10 +70,17 @@ exports.grantModerator = onDocumentCreated("users/{userId}", async (event) => {
             console.log(`User ${uid} meets criteria. Granting moderator claim.`);
             await admin.auth().setCustomUserClaims(uid, { isModerator: true });
             
-            // Trigger client refresh by updating the doc
-            await snapshot.ref.update({
+            // Trigger client refresh by updating the user doc
+            await db.collection('users').doc(uid).update({
                 claimsUpdated: admin.firestore.FieldValue.serverTimestamp()
             });
+
+            // Delete the needModUsers doc
+            await snapshot.ref.delete();
+            console.log(`Deleted needModUsers doc for ${uid}`);
+        } else {
+            await snapshot.ref.delete();
+            console.log(`User ${uid} does not meet criteria. Deleted needModUsers doc.`);
         }
     } catch (error) {
         console.error("Error granting moderator claim:", error);

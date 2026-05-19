@@ -9,7 +9,13 @@
       "**/.*",
       "**/node_modules/**"
     ],
-    "predeploy": "npm run build"
+    "predeploy": "npm run build",
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
   },
   "functions": [
     {

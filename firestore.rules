@@ -61,8 +61,12 @@ service cloud.firestore {
       // Any logged-in user can read campuses
       allow read: if request.auth != null;
       
-      // No client write access for campuses
-      allow write: if false;
+      // Allow specific user to create campuses
+      allow create: if request.auth != null && 
+                       request.auth.token.email == 'rosalyntan@google.com' && 
+                       isEmailVerified();
+      
+      allow update, delete: if false;
     }
 
     match /users/{uid} {
@@ -71,6 +75,17 @@ service cloud.firestore {
       
       // User can create and update their own document (campus, name)
       allow create, update: if request.auth != null && uid == request.auth.uid;
+    }
+
+    // Rules for needModUsers collection
+    match /needModUsers/{userId} {
+      // Only Cloud Function (Admin SDK) can read or delete. Deny to all client access.
+      allow read, update, delete: if false;
+      
+      // User can only create a document for themselves if they meet criteria
+      allow create: if request.auth != null 
+                    && userId == request.auth.uid
+                    && request.auth.token.email.matches('.*@google\\.com$');
     }
   }
 }

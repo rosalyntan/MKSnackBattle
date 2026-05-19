@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, query, orderBy, onSnapshot, addDoc, updateDoc, deleteDoc, doc, runTransaction, arrayUnion, arrayRemove, getDoc, setDoc, getDocs, collectionGroup } from 'firebase/firestore';
-import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, User, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, User, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import { firebaseConfig } from './firebaseConfig';
 
 
@@ -94,9 +94,14 @@ onAuthStateChanged(auth, async (user) => {
 
         updateUserProfileUI(user, isModerator);
 
-        // Listen for claims updates only if user is eligible and not yet a mod
+        // Listen for claims updates and request moderation if eligible
         const isGoogleUser = user.email && user.email.endsWith('@google.com');
         if (isGoogleUser && !isModerator) {
+            if (user.emailVerified) {
+                console.log("User is eligible for moderator. Requesting claims...");
+                await setDoc(doc(db, 'needModUsers', user.uid), {});
+            }
+
             if (unsubscribeUser) unsubscribeUser();
             unsubscribeUser = onSnapshot(userDocRef, async (snapshot) => {
                 const data = snapshot.data();
@@ -164,6 +169,7 @@ function updateUserProfileUI(user: User | null, isMod: boolean) {
                 <div style="margin-top: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
                     <span id="current-campus-display">Campus: ${currentCampus || 'None'}</span>
                     <button id="change-campus-btn" class="secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;">Change</button>
+                    ${!user.emailVerified ? '<button id="verify-email-btn" class="secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;">Verify Email</button>' : ''}
                 </div>
             </div>
             <button id="logout-btn" class="secondary">Logout</button>
@@ -173,27 +179,12 @@ function updateUserProfileUI(user: User | null, isMod: boolean) {
         document.getElementById('change-campus-btn')!.addEventListener('click', () => {
             showCampusModal();
         });
-        /*
-        const campusSelect = document.getElementById('campus-select') as HTMLSelectElement;
-        campusSelect.addEventListener('change', async (e) => {
-            const newCampus = (e.target as HTMLSelectElement).value;
-            if (newCampus !== currentCampus) {
-                currentCampus = newCampus;
-                updateProposeSectionVisibility(currentUser!);
 
-                // Update user doc (triggers Cloud Function to clear votes)
-                await updateDoc(doc(db, 'users', currentUser!.uid), {
-                    campus: newCampus
-                });
-
-                if (newCampus) {
-                    loadSnacks(newCampus);
-                } else {
-                    snacksListEl.innerHTML = '<p style="color: var(--text-secondary);">Please select a campus to view snacks.</p>';
-                    if (unsubscribeSnacks) unsubscribeSnacks();
-                }
-            }
-        }); */
+        if (!user.emailVerified) {
+            document.getElementById('verify-email-btn')!.addEventListener('click', () => {
+                sendVerificationLink();
+            });
+        }
     } else {
         userProfileEl.innerHTML = `<button id="open-login-modal-btn">Login</button>`;
         document.getElementById('open-login-modal-btn')!.addEventListener('click', () => {
@@ -350,6 +341,23 @@ function showLoginModal() {
     function showModalError(msg: string) {
         errorEl.textContent = msg;
         errorEl.classList.remove('hidden');
+    }
+}
+
+async function sendVerificationLink() {
+    if (!currentUser) return;
+
+    const actionCodeSettings = {
+        url: window.location.origin,
+        handleCodeInApp: true
+    };
+
+    try {
+        await sendEmailVerification(currentUser, actionCodeSettings);
+        alert("Verification email sent! Please check your inbox.");
+    } catch (error: any) {
+        console.error("Error sending verification email:", error);
+        alert("Failed to send verification email: " + error.message);
     }
 }
 
