@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, query, orderBy, onSnapshot, addDoc, updateDoc, deleteDoc, doc, runTransaction, arrayUnion, arrayRemove, getDoc, setDoc, getDocs, collectionGroup } from 'firebase/firestore';
-import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, User, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
+import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, User, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification, updateProfile } from 'firebase/auth';
 import { firebaseConfig } from './firebaseConfig';
 
 
@@ -13,7 +13,6 @@ const provider = new GoogleAuthProvider();
 // Interfaces
 interface UserData {
     campus: string;
-    name: string;
 }
 
 interface SnackData {
@@ -83,7 +82,6 @@ onAuthStateChanged(auth, async (user) => {
         let campus = "";
         if (!userDocSnap.exists()) {
             await setDoc(userDocRef, {
-                name: user.displayName || "",
                 campus: ""
             });
         } else {
@@ -263,6 +261,10 @@ function showLoginModal() {
             <div class="auth-form" style="display: flex; flex-direction: column; gap: 1rem;">
                 <button id="login-btn" style="width: 100%;">Sign in with Google</button>
                 <div style="text-align: center; color: var(--text-secondary);">or</div>
+                <div id="name-input-container" style="display: flex; flex-direction: column; gap: 0.5rem;" class="hidden">
+                    <label for="name-input" style="font-size: 0.9rem; color: var(--text-secondary);">Name</label>
+                    <input type="text" id="name-input" placeholder="Your Name" style="padding: 0.75rem; border-radius: 10px; border: 1px solid var(--glass-border); background: rgba(15, 23, 42, 0.8); color: white;">
+                </div>
                 <div style="display: flex; flex-direction: column; gap: 0.5rem;">
                     <label for="email-input" style="font-size: 0.9rem; color: var(--text-secondary);">Email</label>
                     <input type="email" id="email-input" placeholder="your.email@example.com" style="padding: 0.75rem; border-radius: 10px; border: 1px solid var(--glass-border); background: rgba(15, 23, 42, 0.8); color: white;">
@@ -285,6 +287,8 @@ function showLoginModal() {
 
     let isSignUpMode = false;
 
+    const nameInputContainer = modalOverlay.querySelector('#name-input-container') as HTMLDivElement;
+    const nameInput = modalOverlay.querySelector('#name-input') as HTMLInputElement;
     const emailInput = modalOverlay.querySelector('#email-input') as HTMLInputElement;
     const passwordInput = modalOverlay.querySelector('#password-input') as HTMLInputElement;
     const submitBtn = modalOverlay.querySelector('#email-submit-btn') as HTMLButtonElement;
@@ -300,15 +304,23 @@ function showLoginModal() {
     submitBtn.addEventListener('click', async () => {
         const email = emailInput.value.trim();
         const password = passwordInput.value;
+        const name = nameInput.value.trim();
 
         if (!email || !password) {
             showModalError("Please enter both email and password.");
             return;
         }
 
+        if (isSignUpMode && !name) {
+            showModalError("Please enter your name.");
+            return;
+        }
+
         try {
             if (isSignUpMode) {
-                await createUserWithEmailAndPassword(auth, email, password);
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                await updateProfile(userCredential.user, { displayName: name });
+                console.log("User created and profile updated with name:", name);
             } else {
                 await signInWithEmailAndPassword(auth, email, password);
             }
@@ -326,10 +338,12 @@ function showLoginModal() {
             titleEl.textContent = "Create Account";
             submitBtn.textContent = "Sign Up";
             toggleBtn.textContent = "Already have an account? Sign In";
+            nameInputContainer.classList.remove('hidden');
         } else {
             titleEl.textContent = "Sign In";
             submitBtn.textContent = "Sign In";
             toggleBtn.textContent = "New to MicroKitchen? Create new account";
+            nameInputContainer.classList.add('hidden');
         }
         errorEl.classList.add('hidden');
     });
