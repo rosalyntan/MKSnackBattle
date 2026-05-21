@@ -70,6 +70,10 @@ onAuthStateChanged(auth, async (user) => {
     currentUser = user;
     if (user) {
         console.log("User signed in:", user.uid);
+        
+        // Show tabs
+        tabCampus.classList.remove('hidden');
+        tabGlobal.classList.remove('hidden');
 
         // Handle verify complete callback
         if (window.location.pathname === '/verify-complete') {
@@ -147,6 +151,11 @@ onAuthStateChanged(auth, async (user) => {
         isModerator = false;
         updateUserProfileUI(null, false);
         proposeSectionEl.classList.add('hidden');
+        
+        // Hide tabs
+        tabCampus.classList.add('hidden');
+        tabGlobal.classList.add('hidden');
+        
         snacksListEl.innerHTML = '<p style="color: var(--text-secondary);">Please login to see snacks.</p>';
         if (unsubscribeSnacks) unsubscribeSnacks();
         if (unsubscribeUser) unsubscribeUser();
