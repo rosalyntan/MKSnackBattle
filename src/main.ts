@@ -71,6 +71,13 @@ onAuthStateChanged(auth, async (user) => {
     if (user) {
         console.log("User signed in:", user.uid);
 
+        // Handle verify complete callback
+        if (window.location.pathname === '/verify-complete') {
+            console.log("Reached verify-complete path. Refreshing token...");
+            await user.getIdToken(true);
+            window.history.replaceState({}, document.title, '/');
+        }
+
         // Check custom claims for moderator status
         const idTokenResult = await user.getIdTokenResult();
         isModerator = idTokenResult.claims.isModerator === true;
@@ -362,7 +369,7 @@ async function sendVerificationLink() {
     if (!currentUser) return;
 
     const actionCodeSettings = {
-        url: window.location.origin,
+        url: window.location.origin + '/verify-complete',
         handleCodeInApp: true
     };
 

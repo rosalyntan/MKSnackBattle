@@ -40,18 +40,32 @@ service cloud.firestore {
 
     // Rules for snacks collection group (anywhere in the database)
     match /{path=**}/snacks/{snackId} {
+      allow read: if request.auth != null;
+    }
+
+    // Rules for snacks collection
+    match /campuses/{campusId}/snacks/{snackId} {
       // Any logged-in user can read
       allow read: if request.auth != null;
       
       // Only users with verified email can create
       allow create: if request.auth != null && isEmailVerified();
       
-      // Update rules: No one can change the name, and votes change IFF presence changes
+      // Update rules: 
+      // 1. User must be logged in
+      // 2. No one can change the name
+      // 3. Only modifies self in arrays
+      // 4. User's campus must match snack's campus
+      // 5. Vote count change must match array changes
       allow update: if request.auth != null && 
                     request.resource.data.name == resource.data.name &&
                     onlyModifiesSelf('upvotedUsers') &&
                     onlyModifiesSelf('downvotedUsers') &&
-                    ((request.resource.data.votes != resource.data.votes) == (presenceChanged('upvotedUsers') || presenceChanged('downvotedUsers')));
+                    campusId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.campus &&
+                    (request.resource.data.votes - resource.data.votes == 
+                      (presenceChanged('upvotedUsers') ? (request.resource.data.upvotedUsers.hasAll([request.auth.uid]) ? 1 : -1) : 0) +
+                      (presenceChanged('downvotedUsers') ? (request.resource.data.downvotedUsers.hasAll([request.auth.uid]) ? -1 : 1) : 0)
+                    );
       
       // Only moderators can delete
       allow delete: if request.auth != null && isModerator();
@@ -85,6 +99,7 @@ service cloud.firestore {
       // User can only create a document for themselves if they meet criteria
       allow create: if request.auth != null 
                     && userId == request.auth.uid
+                    && isEmailVerified()
                     && request.auth.token.email.matches('.*@google\\.com$');
     }
   }
